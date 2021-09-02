@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/gorilla/mux"
-) // import all packages
+)
 
 // Book struct (Model)
 type Book struct {
@@ -23,60 +23,92 @@ type Author struct {
 	Lastname  string `json:"lastname"`
 }
 
-// Init books var as a slice Book struct / slice is something that can hold multiple values like an array or a collection.
+// Init books var as a slice Book struct
 var books []Book
 
-// Function to add mock data
-func addMockData() {
-	author1 := Author{
-		Firstname: "John",
-		Lastname:  "Doe",
-	}
-
-	author2 := Author{
-		Firstname: "Steve",
-		Lastname:  "Smith",
-	}
-
-	books = append(books, Book{ID: "1", Isbn: "448743", Title: "Book One", Author: &author1})
-	books = append(books, Book{ID: "2", Isbn: "454545", Title: "Book Two", Author: &author2})
-}
-
-// Get All Books Service
+// Get all books
 func getBooks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json") // Setting the header to json type response
-	json.NewEncoder(w).Encode(books)	// Encoding the books slice into json and sending it to the client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(books)
 }
 
-// Get Single Book Service
-func getBook(w http.ResponseWriter, r *http.Request) {}
+// Get single book
+func getBook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+	// Loop through books and find one with the id from the params
+	for _, item := range books {
+		if item.ID == params["id"] {
+			json.NewEncoder(w).Encode(item)
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(&Book{})
+}
 
-// Create a new Book
-func createBook(w http.ResponseWriter, r *http.Request) {}
+// Add new book
+func createBook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var book Book
+	_ = json.NewDecoder(r.Body).Decode(&book)
+	book.ID = strconv.Itoa(rand.Intn(100000000)) // Mock ID - not safe
+	books = append(books, book)
+	json.NewEncoder(w).Encode(book)
+}
 
-// Update a Book
-func updateBook(w http.ResponseWriter, r *http.Request) {}
+// Update book
+func updateBook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	for index, item := range books {
+		if item.ID == params["id"] {
+			books = append(books[:index], books[index+1:]...)
+			var book Book
+			_ = json.NewDecoder(r.Body).Decode(&book)
+			book.ID = params["id"]
+			books = append(books, book)
+			json.NewEncoder(w).Encode(book)
+			return
+		}
+	}
+}
 
-// Delete a Book
-func deleteBook(w http.ResponseWriter, r *http.Request) {}
+// Delete book
+func deleteBook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	for index, item := range books {
+		if item.ID == params["id"] {
+			books = append(books[:index], books[index+1:]...)
+			break
+		}
+	}
+	json.NewEncoder(w).Encode(books)
+}
 
 // Main function
 func main() {
+	// Init router
+	r := mux.NewRouter()
 
-	// Initialize the Router
-	router := mux.NewRouter()
+	// Hardcoded data - @todo: add database
+	books = append(books, Book{ID: "1", Isbn: "438227", Title: "Book One", Author: &Author{Firstname: "John", Lastname: "Doe"}})
+	books = append(books, Book{ID: "2", Isbn: "454555", Title: "Book Two", Author: &Author{Firstname: "Steve", Lastname: "Smith"}})
 
-	// Adding Mock data (Hard Coded)
-	addMockData()
-
-	// Route Handlers / Endpoints
-	router.HandleFunc("/api/books", getBooks).Methods("GET")
-	router.HandleFunc("/api/books/{id}", getBook).Methods("GET")
-	router.HandleFunc("/api/books", createBook).Methods("POST")
-	router.HandleFunc("/api/books/{id}", updateBook).Methods("PUT")
-	router.HandleFunc("/api/books/{id}", deleteBook).Methods("DELETE")
+	// Route handles & endpoints
+	r.HandleFunc("/books", getBooks).Methods("GET")
+	r.HandleFunc("/books/{id}", getBook).Methods("GET")
+	r.HandleFunc("/books", createBook).Methods("POST")
+	r.HandleFunc("/books/{id}", updateBook).Methods("PUT")
+	r.HandleFunc("/books/{id}", deleteBook).Methods("DELETE")
 
 	// Start server
-	log.Fatal(http.ListenAndServe(":5000", router))
-
+	log.Fatal(http.ListenAndServe(":8000", r))
 }
+
+// Request sample
+// {
+// 	"isbn":"4545454",
+// 	"title":"Book Three",
+// 	"author":{"firstname":"Harry","lastname":"White"}
+// }
